@@ -73,7 +73,7 @@ jobs:
           git add android/build-error.log
           if ! git diff --cached --quiet; then
             git commit -m "ci(android): capture failing build log"
-            git push
+            git push origin HEAD
           fi
 
       - name: Upload APK artifact
