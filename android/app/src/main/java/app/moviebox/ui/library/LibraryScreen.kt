@@ -37,7 +37,7 @@ fun LibraryScreen(vm: MovieBoxViewModel, onOpen: (CatalogItem) -> Unit) {
 
         if (history.isNotEmpty()) {
             Text("Continue Watching", style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp, bottom = 8.dp))
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp))
             LazyVerticalGrid(
                 columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -60,7 +60,7 @@ fun LibraryScreen(vm: MovieBoxViewModel, onOpen: (CatalogItem) -> Unit) {
         }
 
         Text("Favorites", style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 16.dp, bottom = 8.dp))
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp))
         if (favorites.isEmpty()) {
             Text("Tap the heart on any title to add it here.",
                 color = androidx.compose.ui.graphics.Color.Gray,
@@ -70,7 +70,7 @@ fun LibraryScreen(vm: MovieBoxViewModel, onOpen: (CatalogItem) -> Unit) {
                 columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, bottom = 16.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
             ) {
                 items(favorites) { item -> PosterCard(item, onClick = { onOpen(item) }) }
             }

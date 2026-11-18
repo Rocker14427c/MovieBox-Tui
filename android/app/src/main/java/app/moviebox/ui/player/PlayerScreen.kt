@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
-import androidx.media3.exoplayer.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.PlayerView
@@ -78,7 +78,7 @@ fun PlayerScreen(
         AndroidView(
             factory = {
                 PlayerView(context).apply {
-                    player = player
+                    this.player = player
                     useController = true
                 }
             },

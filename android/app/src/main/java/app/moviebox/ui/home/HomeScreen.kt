@@ -42,13 +42,14 @@ import coil.request.ImageRequest
 @Composable
 fun HomeScreen(vm: MovieBoxViewModel, onOpen: (CatalogItem) -> Unit) {
     val state by vm.home.collectAsState()
+    val err = state.error
 
     LaunchedEffect(Unit) { if (state.trending.isEmpty()) vm.loadHome() }
 
     if (state.loading) {
         FullScreenLoading("Loading your library…")
-    } else if (state.error != null && state.trending.isEmpty()) {
-        ErrorState(state.error) { vm.loadHome() }
+    } else if (err != null && state.trending.isEmpty()) {
+        ErrorState(err) { vm.loadHome() }
     } else {
         Column(
             Modifier
