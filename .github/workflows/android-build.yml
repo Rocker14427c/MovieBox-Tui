@@ -72,21 +72,18 @@ jobs:
           {
             echo "## Android build failed (sha ${{ github.sha }})"
             echo ""
-            grep -nE "^e: |error:|FAILURE:|What went wrong|Execution failed|Caused by|> Task .*FAILED" /tmp/build.log | tail -200
+            grep -nE "^e: |error:|FAILURE:|What went wrong|Execution failed|Caused by|> Task .*FAILED" /tmp/build.log | tail -250
             echo ""
             echo "---- tail ----"
-            tail -30 /tmp/build.log
-          } > /tmp/error.log 2>&1
-          if [ "$(wc -c < /tmp/error.log)" -gt 150000 ]; then
-            head -c 150000 /tmp/error.log > /tmp/error.log.tmp && mv /tmp/error.log.tmp /tmp/error.log
-          fi
-          CONTENT=$(base64 -w0 /tmp/error.log)
-          echo "payload bytes: ${#CONTENT}"
-          gh api "repos/${{ github.repository }}/contents/android/build-error.log" \
-            -X PUT \
-            -f message="ci(android): capture failing build log" \
-            -f content="$CONTENT" \
-            -f branch="${{ github.ref_name }}"
+            tail -40 /tmp/build.log
+          } > android/build-error.log 2>&1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/build-error.log
+          # checkout is shallow; deepen so the push is accepted.
+          git fetch --unshallow origin || git fetch --depth=2147483647 origin || true
+          git commit -m "ci(android): capture failing build log" || true
+          git push origin HEAD
           echo "capture exit: $?"
 
       - name: Upload APK artifact
