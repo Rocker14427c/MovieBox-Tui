@@ -219,7 +219,7 @@ class BingrApi {
         )
     }
 
-    private fun formatRuntime(min: Int): String {
+    private fun formatRuntime(min: Int): String? {
         if (min <= 0) return null
         val h = min / 60
         val m = min % 60

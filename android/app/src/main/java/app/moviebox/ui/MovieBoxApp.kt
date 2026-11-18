@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import app.moviebox.ui.home.HomeScreen
 import app.moviebox.ui.detail.DetailScreen
 import app.moviebox.ui.library.LibraryScreen
