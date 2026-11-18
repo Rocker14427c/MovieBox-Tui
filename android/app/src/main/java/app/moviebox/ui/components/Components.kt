@@ -53,7 +53,7 @@ import coil.request.ImageRequest
 fun GlassCard(
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    shape: RoundedCornerShape = RoundedCornerShape(16.dp),
+    shape: RoundedCornerShape,
     content: @Composable () -> Unit,
 ) {
     val base = Modifier
@@ -105,7 +105,7 @@ fun PosterCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    GlassCard(onClick = onClick, modifier = modifier.width(120.dp).aspectRatio(2f / 3f)) {
+    GlassCard(onClick = onClick, modifier = modifier.width(120.dp).aspectRatio(2f / 3f), shape = RoundedCornerShape(16.dp)) {
         Box {
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
@@ -177,7 +177,7 @@ fun FullScreenLoading(text: String? = null) {
 @Composable
 fun ErrorState(message: String, onRetry: () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        GlassCard(modifier = Modifier.padding(32.dp).width(300.dp)) {
+        GlassCard(modifier = Modifier.padding(32.dp).width(300.dp), shape = RoundedCornerShape(16.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(24.dp)) {
                 Icon(

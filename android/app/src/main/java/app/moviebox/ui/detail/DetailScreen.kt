@@ -193,7 +193,7 @@ private fun DetailContent(
 
         // meta
         item {
-            GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), shape = RoundedCornerShape(16.dp)) {
                 Column(Modifier.padding(14.dp)) {
                     detail.genres.takeIf { it.isNotEmpty() }?.let { g ->
                         Row(Modifier.padding(bottom = 8.dp),
@@ -305,7 +305,7 @@ private fun DetailContent(
 
 @Composable
 private fun StreamCard(stream: Stream, onPlay: () -> Unit) {
-    GlassCard(onClick = onPlay, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    GlassCard(onClick = onPlay, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(16.dp)) {
         Row(
             Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,

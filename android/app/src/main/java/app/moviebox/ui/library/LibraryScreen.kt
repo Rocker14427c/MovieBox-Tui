@@ -93,7 +93,7 @@ fun LibraryScreen(vm: MovieBoxViewModel, onOpen: (CatalogItem) -> Unit) {
 @Composable
 private fun ContinueCard(title: String, positionMs: Long, durationMs: Long, onClick: () -> Unit) {
     val pct = if (durationMs > 0) (positionMs * 100 / durationMs).coerceIn(0, 100) else 0
-    GlassCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+    GlassCard(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
         Column(Modifier.fillMaxWidth().padding(10.dp)) {
             Text(title, maxLines = 2,
                 style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
