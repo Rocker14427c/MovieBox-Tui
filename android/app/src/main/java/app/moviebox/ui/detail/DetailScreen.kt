@@ -62,14 +62,15 @@ fun DetailScreen(
     val state by vm.detail.collectAsState()
     val fav by remember(subjectId) { mutableStateOf(vm.isFavorite(subjectId)) }
     val detail = state.detail
+    val err = state.error
 
     LaunchedEffect(subjectId) { vm.loadDetail(CatalogItem(subjectId, title, "movie")) }
 
     Box(Modifier.fillMaxSize()) {
-        if (state.loading || detail == null && state.error == null) {
+        if (state.loading || detail == null && err == null) {
             FullScreenLoading()
-        } else if (state.error != null) {
-            ErrorState(state.error) { vm.loadDetail(CatalogItem(subjectId, title, "movie")) }
+        } else if (err != null) {
+            ErrorState(err) { vm.loadDetail(CatalogItem(subjectId, title, "movie")) }
         } else if (detail != null) {
             DetailContent(
                 detail = detail,

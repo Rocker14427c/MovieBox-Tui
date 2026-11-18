@@ -68,7 +68,7 @@ jobs:
           {
             echo "## Android build failed (sha ${{ github.sha }})"
             echo ""
-            grep -nE "^e: |error:|FAILURE:|What went wrong|Execution failed|Caused by|> Task .*FAILED" /tmp/build.log | tail -250
+            grep -nE -A4 "^e: " /tmp/build.log | tail -300
             echo ""
             echo "---- tail ----"
             tail -40 /tmp/build.log

@@ -12,6 +12,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -92,7 +94,7 @@ private fun ChannelCard(channel: TvChannel, onClick: () -> Unit) {
                 }
             }
             androidx.compose.material3.Icon(
-                androidx.compose.material.icons.Icons.Filled.PlayArrow, contentDescription = "Live",
+                Icons.Filled.PlayArrow, contentDescription = "Live",
             )
         }
     }

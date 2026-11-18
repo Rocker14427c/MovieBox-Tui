@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.PlayerView
@@ -39,10 +40,11 @@ fun PlayerScreen(
     val player = remember(route.headers) {
         val factory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
-            // The MovieBox CDNs reject requests without the proper User-Agent
-            // and (for the H5 mirrors) the official-web Referer.
+        // The MovieBox CDNs reject requests without the proper User-Agent
+        // and (for the H5 mirrors) the official-web Referer.
         if (route.headers.isNotEmpty()) factory.setDefaultRequestProperties(route.headers)
-        ExoPlayer.Builder(context).setHttpDataSourceFactory(factory).build()
+        val mediaSourceFactory = DefaultMediaSourceFactory(context).setDataSourceFactory(factory)
+        ExoPlayer.Builder(context).setMediaSourceFactory(mediaSourceFactory).build()
     }
 
     var captionLang by remember { mutableStateOf<String?>(null) }

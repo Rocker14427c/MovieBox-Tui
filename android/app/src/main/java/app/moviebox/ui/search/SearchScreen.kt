@@ -29,6 +29,7 @@ import app.moviebox.ui.viewmodel.MovieBoxViewModel
 @Composable
 fun SearchScreen(vm: MovieBoxViewModel, onOpen: (CatalogItem) -> Unit) {
     val state by vm.search.collectAsState()
+    val err = state.error
     var query by remember { mutableStateOf("") }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -43,7 +44,7 @@ fun SearchScreen(vm: MovieBoxViewModel, onOpen: (CatalogItem) -> Unit) {
 
         when {
             state.loading -> FullScreenLoading()
-            state.error != null -> ErrorState(state.error) { vm.setSearchQuery(query) }
+            err != null -> ErrorState(err) { vm.setSearchQuery(query) }
             state.results.isEmpty() && query.isNotBlank() ->
                 androidx.compose.material3.Text(
                     "No results found.", modifier = Modifier.padding(24.dp),

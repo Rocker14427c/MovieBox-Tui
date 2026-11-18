@@ -310,11 +310,7 @@ class MovieBoxApi {
                 ?: json.optJSONObject("data")?.optJSONObject("extCaptions")
             val out = mutableListOf<Subtitle>()
             val seen = mutableSetOf<String>()
-            val items = caps?.let { c ->
-                c.optJSONArray("list")
-                    ?: c.optJSONArray("captions")
-                    ?: run { val k = c.names()?.firstOrNull(); if (k != null) c.optJSONArray(k) else null }
-            }
+            val items = caps?.optJSONArray("list") ?: caps?.optJSONArray("captions")
             items?.let { arr ->
                 for (i in 0 until arr.length()) {
                     val c = arr.getJSONObject(i)
