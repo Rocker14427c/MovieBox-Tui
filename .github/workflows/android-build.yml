@@ -80,10 +80,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add android/build-error.log
-          # checkout is shallow; deepen so the push is accepted.
-          git fetch --unshallow origin || git fetch --depth=2147483647 origin || true
           git commit -m "ci(android): capture failing build log" || true
-          git push origin HEAD
+          # Push to a dedicated diagnostic branch to avoid shallow/divergence issues.
+          git push origin HEAD:refs/heads/ci-build-log 2>&1
           echo "capture exit: $?"
 
       - name: Upload APK artifact
