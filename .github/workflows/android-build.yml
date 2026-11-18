@@ -79,7 +79,7 @@ jobs:
           git add -f android/build-error.log
           git commit -m "ci(android): capture failing build log"
           # Push to a dedicated diagnostic branch to avoid shallow/divergence issues.
-          git push origin HEAD:refs/heads/ci-build-log 2>&1
+          git push --force origin HEAD:refs/heads/ci-build-log 2>&1
           echo "capture exit: $?"
 
       - name: Upload APK artifact
