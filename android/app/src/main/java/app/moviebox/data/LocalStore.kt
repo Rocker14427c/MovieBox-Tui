@@ -3,6 +3,7 @@ package app.moviebox.data
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileNotFoundException
 
 /** Local-only persistence: watch history, favorites and settings. Zero telemetry. */
 class LocalStore(private val dir: File) {
@@ -11,8 +12,29 @@ class LocalStore(private val dir: File) {
 
     private fun file(name: String) = File(dir, name)
 
+    // Read a JSON file, returning null when it is missing, empty, or malformed.
+    // Callers fall back to their defaults — a missing/corrupt file must never
+    // crash the app (it does not exist yet on a fresh install).
+    private fun readJsonOrNull(name: String): JSONArray? = try {
+        val f = file(name)
+        if (!f.exists() || f.length() == 0L) null else JSONArray(f.readText())
+    } catch (_: FileNotFoundException) {
+        null
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun readObjectOrNull(name: String): JSONObject? = try {
+        val f = file(name)
+        if (!f.exists() || f.length() == 0L) null else JSONObject(f.readText())
+    } catch (_: FileNotFoundException) {
+        null
+    } catch (_: Exception) {
+        null
+    }
+
     fun loadHistory(): List<ResumePoint> {
-        val arr = JSONArray(file("history.json").readText())
+        val arr = readJsonOrNull("history.json") ?: return emptyList()
         val out = mutableListOf<ResumePoint>()
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
@@ -46,7 +68,7 @@ class LocalStore(private val dir: File) {
     }
 
     fun loadFavorites(): List<CatalogItem> {
-        val arr = JSONArray(file("favorites.json").readText())
+        val arr = readJsonOrNull("favorites.json") ?: return emptyList()
         val out = mutableListOf<CatalogItem>()
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
@@ -88,7 +110,7 @@ class LocalStore(private val dir: File) {
     private fun settingsFile() = file("settings.json")
 
     fun loadSettings(): Map<String, String> {
-        val obj = JSONObject(settingsFile().readText())
+        val obj = readObjectOrNull("settings.json") ?: return emptyMap()
         return obj.keys().asSequence().associateWith { obj.getString(it) }
     }
 
