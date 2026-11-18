@@ -75,7 +75,8 @@ jobs:
           } > android/build-error.log 2>&1
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          # *.log is gitignored; force-add so the commit actually contains the log.
+          git add -f android/build-error.log
           git commit -m "ci(android): capture failing build log"
           # Push to a dedicated diagnostic branch to avoid shallow/divergence issues.
           git push origin HEAD:refs/heads/ci-build-log 2>&1
