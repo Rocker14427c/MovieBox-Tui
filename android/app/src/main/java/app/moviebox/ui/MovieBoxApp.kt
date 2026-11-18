@@ -33,8 +33,6 @@ import app.moviebox.ui.search.SearchScreen
 import app.moviebox.ui.theme.MovieBoxTheme
 import app.moviebox.ui.theme.Palette
 import app.moviebox.ui.viewmodel.MovieBoxViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
-
 enum class Tab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Home(label = "Home", icon = Icons.Filled.Home),
     Search(label = "Search", icon = Icons.Filled.Search),
@@ -58,7 +56,7 @@ sealed class Route {
 }
 
 @Composable
-fun MovieBoxApp(vm: MovieBoxViewModel = viewModel()) {
+fun MovieBoxApp(vm: MovieBoxViewModel) {
     var route by remember { mutableStateOf<Route>(Route.Tabs) }
     var activeTab by remember { mutableStateOf(Tab.Home) }
 

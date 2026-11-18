@@ -83,7 +83,6 @@ fun GlassPill(
     text: String,
     modifier: Modifier = Modifier,
     strong: Boolean = false,
-    color: Color = MaterialTheme.colorScheme.onSurface,
 ) {
     Text(
         text,
@@ -92,7 +91,7 @@ fun GlassPill(
             .background(if (strong) Palette.glassFillStrong else Palette.glassFill)
             .border(0.5.dp, Palette.glassBorder, RoundedCornerShape(20.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp),
-        color = color,
+        color = MaterialTheme.colorScheme.onSurface,
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.SemiBold,
         fontSize = 12.sp,
