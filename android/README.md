@@ -2,6 +2,16 @@
 
 A native Android app port of **MovieBox-Tui** — no Termux, no terminal setup, no external players required. Users install a single APK and get the full MovieBox experience with a premium streaming-app interface.
 
+## Download the release APK (daily use)
+
+A **signed release APK** is built by GitHub Actions on every push and published to the
+`latest` release (stable signature — updates install in-place, no reinstall):
+
+- **Release page:** <https://github.com/Rocker14427c/MovieBox-Tui/releases/tag/latest>
+- **Direct APK:** <https://github.com/Rocker14427c/MovieBox-Tui/releases/download/latest/app-release.apk>
+
+Install it by enabling **"Install unknown apps"** for your browser, then opening the downloaded APK.
+
 ## What it does
 
 | Feature | Status |
