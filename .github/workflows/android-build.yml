@@ -68,11 +68,15 @@ jobs:
         if: failure()
         continue-on-error: true
         run: |
+          set +e
           {
             echo "## Android build failed (sha ${{ github.sha }})"
             echo ""
             grep -nE "^e: |error:|FAILURE:|What went wrong|Execution failed|Caused by|> Task .*FAILED" /tmp/build.log | tail -200
-          } > /tmp/error.log
+            echo ""
+            echo "---- tail ----"
+            tail -30 /tmp/build.log
+          } > /tmp/error.log 2>&1
           if [ "$(wc -c < /tmp/error.log)" -gt 150000 ]; then
             head -c 150000 /tmp/error.log > /tmp/error.log.tmp && mv /tmp/error.log.tmp /tmp/error.log
           fi
@@ -83,6 +87,7 @@ jobs:
             -f message="ci(android): capture failing build log" \
             -f content="$CONTENT" \
             -f branch="${{ github.ref_name }}"
+          echo "capture exit: $?"
 
       - name: Upload APK artifact
         if: success()
