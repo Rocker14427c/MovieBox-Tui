@@ -3,14 +3,12 @@ package app.moviebox.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.moviebox.data.BingrApi
 import app.moviebox.data.CatalogItem
 import app.moviebox.data.LocalStore
 import app.moviebox.data.MediaDetail
-import app.moviebox.data.M3UParser
-import app.moviebox.data.MovieBoxApi
 import app.moviebox.data.ResumePoint
 import app.moviebox.data.Stream
-import app.moviebox.data.TvChannel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +19,7 @@ import kotlinx.coroutines.launch
 data class HomeState(
     val loading: Boolean = false,
     val error: String? = null,
+    val hero: CatalogItem? = null,
     val trending: List<CatalogItem> = emptyList(),
     val latest: List<CatalogItem> = emptyList(),
     val movies: List<CatalogItem> = emptyList(),
@@ -44,7 +43,7 @@ data class DetailState(
 
 class MovieBoxViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val api = MovieBoxApi()
+    private val api = BingrApi()
     val store = LocalStore(app.filesDir)
 
     private val _home = MutableStateFlow(HomeState())
@@ -62,26 +61,41 @@ class MovieBoxViewModel(app: Application) : AndroidViewModel(app) {
     private val _history = MutableStateFlow<List<ResumePoint>>(store.loadHistory())
     val history: StateFlow<List<ResumePoint>> = _history.asStateFlow()
 
-    private val _channels = MutableStateFlow<List<TvChannel>>(emptyList())
-    val channels: StateFlow<List<TvChannel>> = _channels.asStateFlow()
-    private val _channelsLoading = MutableStateFlow(false)
-    val channelsLoading: StateFlow<Boolean> = _channelsLoading.asStateFlow()
-
-    private val _playlistUrl = MutableStateFlow(store.loadSettings()["playlist_url"] ?: "")
-    val playlistUrl: StateFlow<String> = _playlistUrl.asStateFlow()
+    /**
+     * Curated featured catalog (real trending titles from bingr.one). The home
+     * screen resolves each via the details API so posters, ratings and backdrops
+     * are always real and current.
+     */
+    private val featured = listOf(
+        "movie:1368337", "movie:1003596", "movie:1300968", "movie:1400837",
+        "movie:1185344", "movie:1423191", "movie:656908", "movie:1381071",
+        "movie:1757174", "movie:1567605", "movie:1543469", "movie:1798383",
+        "series:84773", "series:213375", "series:291507", "series:254630",
+    )
 
     fun loadHome() {
         _home.update { it.copy(loading = true, error = null) }
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val trending = api.homepage("hot_movie", 1) + api.homepage("hot_tv", 1)
-                val latest = api.homepage("new_movie", 1) + api.homepage("new_tv", 1)
-                val movies = api.homepage("movie", 1)
-                val series = api.homepage("tv", 1)
+                val loaded = featured.mapNotNull { raw ->
+                    val (type, id) = raw.split(":")
+                    runCatching { api.details(id, type) }.getOrNull()?.let { d ->
+                        d.toCatalogItem()
+                    }
+                }.filterNotNull()
+
+                val movies = loaded.filter { it.type == "movie" }
+                val series = loaded.filter { it.type == "series" }
+                val trending = loaded.take(12)
+                val latest = loaded.takeLast(4) + loaded.take(8)
+
                 _home.value = HomeState(
-                    loading = false, trending = trending.distinctBy { it.id },
+                    loading = false,
+                    hero = loaded.firstOrNull(),
+                    trending = trending.distinctBy { it.id },
                     latest = latest.distinctBy { it.id },
-                    movies = movies, series = series,
+                    movies = movies,
+                    series = series,
                 )
             }.onFailure {
                 _home.value = HomeState(loading = false, error = it.message ?: "Failed to load")
@@ -106,19 +120,20 @@ class MovieBoxViewModel(app: Application) : AndroidViewModel(app) {
     fun loadDetail(item: CatalogItem) {
         _detail.update { DetailState(loading = true, error = null) }
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { api.details(item.id) }
+            runCatching { api.details(item.id, item.type) }
                 .onSuccess { d ->
                     _detail.value = DetailState(loading = false, detail = d)
-                    loadStreams(d)
+                    loadStreams(d, item)
                 }
                 .onFailure { _detail.value = DetailState(loading = false, error = it.message ?: "Details failed") }
         }
     }
 
-    private fun loadStreams(d: MediaDetail) {
+    /** Loads streams for a detail, honouring the selected season/episode. */
+    fun loadStreams(d: MediaDetail, item: CatalogItem, season: Int = 0, episode: Int = 0) {
         _detail.update { it.copy(streaming = true) }
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { api.streams(d.id) }
+            runCatching { api.streams(d.id, d.type, season, episode) }
                 .onSuccess { streams -> _detail.update { it.copy(streaming = false, streams = streams) } }
                 .onFailure { _detail.update { it.copy(streaming = false) } }
         }
@@ -142,20 +157,11 @@ class MovieBoxViewModel(app: Application) : AndroidViewModel(app) {
         _history.value = emptyList()
     }
 
-    fun loadPlaylist(url: String) {
-        _channelsLoading.value = true
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val channels = M3UParser.loadPlaylist(url)
-                _channels.value = channels
-                store.saveSettings(store.loadSettings() + mapOf("playlist_url" to url))
-            } catch (_: Exception) {
-                _channels.value = emptyList()
-            } finally {
-                _channelsLoading.value = false
-            }
-        }
-    }
-
-    fun savedPlaylistUrl(): String = _playlistUrl.value
+    private fun MediaDetail.toCatalogItem(): CatalogItem = CatalogItem(
+        id = id, title = title, type = type,
+        year = year, poster = poster, backdrop = backdrop,
+        rating = rating, description = description,
+        genres = genres, duration = duration,
+        seasonCount = seasons.size,
+    )
 }

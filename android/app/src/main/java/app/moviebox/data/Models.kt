@@ -42,6 +42,7 @@ data class MediaDetail(
     val genres: List<String> = emptyList(),
     val duration: String? = null,
     val seasons: List<Season> = emptyList(),
+    val similars: List<CatalogItem> = emptyList(),
 )
 
 @Serializable
@@ -58,14 +59,6 @@ data class Stream(
 data class Subtitle(
     val name: String,
     val url: String,
-)
-
-@Serializable
-data class TvChannel(
-    val name: String,
-    val url: String,
-    val group: String = "",
-    val logo: String? = null,
 )
 
 @Serializable

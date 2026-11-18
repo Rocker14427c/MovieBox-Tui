@@ -1,6 +1,7 @@
 package app.moviebox.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,9 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,8 +34,11 @@ import androidx.compose.ui.unit.dp
 import app.moviebox.data.CatalogItem
 import app.moviebox.ui.components.ErrorState
 import app.moviebox.ui.components.FullScreenLoading
+import app.moviebox.ui.components.GlassCard
+import app.moviebox.ui.components.GlassPill
 import app.moviebox.ui.components.RowLazy
 import app.moviebox.ui.components.RowTitle
+import app.moviebox.ui.theme.Palette
 import app.moviebox.ui.viewmodel.MovieBoxViewModel
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
@@ -44,20 +48,20 @@ fun HomeScreen(vm: MovieBoxViewModel, onOpen: (CatalogItem) -> Unit) {
     val state by vm.home.collectAsState()
     val err = state.error
 
-    LaunchedEffect(Unit) { if (state.trending.isEmpty()) vm.loadHome() }
+    LaunchedEffect(Unit) { if (state.hero == null && !state.loading) vm.loadHome() }
 
-    if (state.loading) {
+    if (state.loading && state.hero == null) {
         FullScreenLoading("Loading your library…")
-    } else if (err != null && state.trending.isEmpty()) {
+    } else if (err != null && state.hero == null && state.trending.isEmpty()) {
         ErrorState(err) { vm.loadHome() }
     } else {
         Column(
             Modifier
                 .fillMaxSize()
-                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                .verticalScroll(rememberScrollState())
                 .padding(bottom = 16.dp),
         ) {
-            Hero(state.trending.firstOrNull(), onOpen)
+            Hero(state.hero, onOpen)
             Rows(state, onOpen)
         }
     }
@@ -69,9 +73,9 @@ private fun Hero(item: CatalogItem?, onOpen: (CatalogItem) -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()
-            .height(240.dp)
+            .height(260.dp)
             .padding(horizontal = 12.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(20.dp))
     ) {
         SubcomposeAsyncImage(
             model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
@@ -85,38 +89,45 @@ private fun Hero(item: CatalogItem?, onOpen: (CatalogItem) -> Unit) {
         Box(
             Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Transparent, Color(0xF20B0E14), Color(0xFF0B0E14))
-                    )
-                )
+                .background(Brush.verticalGradient(Palette.heroGradient))
         )
-        Column(
+        // Glass overlay strip for the title block
+        Box(
             Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
                 .padding(16.dp)
+                .background(Palette.glassFill, RoundedCornerShape(16.dp))
+                .border(0.5.dp, Palette.glassBorder, RoundedCornerShape(16.dp))
+                .padding(14.dp)
         ) {
-            Text(
-                item.title, style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                item.year?.let {
-                    Text("$it · ", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column {
+                Text(
+                    item.title, style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 4.dp)) {
+                    item.year?.let {
+                        Text("$it · ", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    item.rating?.let {
+                        Text("★ $it", style = MaterialTheme.typography.bodySmall,
+                            color = Palette.star)
+                    }
                 }
-                item.rating?.let {
-                    Text("★ $it", style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFFFC107))
+                GlassPill(item.type.replaceFirstChar { it.uppercase() },
+                    modifier = Modifier.padding(top = 8.dp), strong = true)
+                androidx.compose.material3.Button(
+                    onClick = { onOpen(item) },
+                    modifier = Modifier.padding(top = 10.dp),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null,
+                        modifier = Modifier.size(18.dp))
+                    Text("Watch", Modifier.padding(start = 6.dp))
                 }
-            }
-            Button(
-                onClick = { onOpen(item) },
-                modifier = Modifier.padding(top = 12.dp),
-            ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("Watch", Modifier.padding(start = 6.dp))
             }
         }
     }
@@ -139,4 +150,3 @@ private fun Rows(state: app.moviebox.ui.viewmodel.HomeState, onOpen: (CatalogIte
         }
     }
 }
-

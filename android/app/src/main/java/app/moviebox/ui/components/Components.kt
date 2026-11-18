@@ -1,6 +1,7 @@
 package app.moviebox.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,8 +40,64 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.moviebox.data.CatalogItem
+import app.moviebox.ui.theme.Palette
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+
+/**
+ * Frosted-glass card. Uses a translucent fill + hairline border for the glass
+ * look — deliberately lightweight (no per-frame blur) so it stays smooth on
+ * low-end devices.
+ */
+@Composable
+fun GlassCard(
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    shape: RoundedCornerShape = RoundedCornerShape(16.dp),
+    content: @Composable () -> Unit,
+) {
+    val base = Modifier
+        .clip(shape)
+        .background(Palette.glassFill)
+        .border(0.5.dp, Palette.glassBorder, shape)
+
+    if (onClick != null) {
+        Card(
+            onClick = onClick,
+            colors = CardDefaults.cardColors(containerColor = Color.Unspecified),
+            shape = shape,
+            modifier = modifier.then(base),
+        ) { content() }
+    } else {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.Unspecified),
+            shape = shape,
+            modifier = modifier.then(base),
+        ) { content() }
+    }
+}
+
+/** Small frosted pill for chips, labels and tags. */
+@Composable
+fun GlassPill(
+    text: String,
+    modifier: Modifier = Modifier,
+    strong: Boolean = false,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    Text(
+        text,
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (strong) Palette.glassFillStrong else Palette.glassFill)
+            .border(0.5.dp, Palette.glassBorder, RoundedCornerShape(20.dp))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        color = color,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 12.sp,
+    )
+}
 
 @Composable
 fun PosterCard(
@@ -46,14 +105,7 @@ fun PosterCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(14.dp),
-        modifier = modifier
-            .width(120.dp)
-            .aspectRatio(2f / 3f),
-    ) {
+    GlassCard(onClick = onClick, modifier = modifier.width(120.dp).aspectRatio(2f / 3f)) {
         Box {
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
@@ -64,14 +116,12 @@ fun PosterCard(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(14.dp)),
+                    .clip(RoundedCornerShape(16.dp)),
             )
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(listOf(Color.Transparent, Color(0xC0000000)))
-                    ),
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xC0000000))))
             )
             Column(
                 Modifier
@@ -117,7 +167,8 @@ fun FullScreenLoading(text: String? = null) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator()
             if (text != null) {
-                Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+                Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 10.dp))
             }
         }
     }
@@ -126,14 +177,23 @@ fun FullScreenLoading(text: String? = null) {
 @Composable
 fun ErrorState(message: String, onRetry: () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-            Icon(
-                Icons.Filled.ErrorOutline, contentDescription = null,
-                tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp),
-            )
-            Text(message ?: "Something went wrong", style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 12.dp, bottom = 16.dp))
-            androidx.compose.material3.Button(onClick = onRetry) { Text("Retry") }
+        GlassCard(modifier = Modifier.padding(32.dp).width(300.dp)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(24.dp)) {
+                Icon(
+                    Icons.Filled.ErrorOutline, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp),
+                )
+                Text(message ?: "Something went wrong",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 16.dp))
+                Button(
+                    onClick = onRetry,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                    ),
+                ) { Text("Retry") }
+            }
         }
     }
 }
@@ -144,23 +204,21 @@ fun PlayBadge() {
         modifier = Modifier
             .size(44.dp)
             .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)),
+            .background(Palette.glassFillStrong)
+            .border(0.5.dp, Palette.glassBorder, RoundedCornerShape(50)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(22.dp))
+        Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = Color.White,
+            modifier = Modifier.size(22.dp))
     }
 }
 
-
 @Composable
 fun QualityChip(quality: String) {
-    Text(
-        quality, modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        color = MaterialTheme.colorScheme.onPrimaryContainer,
-        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
-        fontSize = 12.sp,
-    )
+    GlassPill(quality)
+}
+
+@Composable
+fun Spacer(width: androidx.compose.ui.unit.Dp = 8.dp) {
+    Box(Modifier.width(width).height(0.dp))
 }

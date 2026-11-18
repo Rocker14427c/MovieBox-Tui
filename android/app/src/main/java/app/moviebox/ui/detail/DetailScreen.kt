@@ -1,6 +1,7 @@
 package app.moviebox.ui.detail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,18 +14,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,10 +42,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.moviebox.data.CatalogItem
+import app.moviebox.data.MediaDetail
 import app.moviebox.data.Stream
 import app.moviebox.ui.components.ErrorState
 import app.moviebox.ui.components.FullScreenLoading
+import app.moviebox.ui.components.GlassCard
+import app.moviebox.ui.components.GlassPill
 import app.moviebox.ui.components.QualityChip
+import app.moviebox.ui.components.RowLazy
+import app.moviebox.ui.components.RowTitle
+import app.moviebox.ui.theme.Palette
 import app.moviebox.ui.viewmodel.MovieBoxViewModel
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
@@ -57,7 +62,8 @@ fun DetailScreen(
     subjectId: String,
     title: String,
     onBack: () -> Unit,
-    onPlay: (Stream) -> Unit,
+    onPlay: (Stream, Int, Int) -> Unit,
+    onOpen: (CatalogItem) -> Unit,
 ) {
     val state by vm.detail.collectAsState()
     val fav by remember(subjectId) { mutableStateOf(vm.isFavorite(subjectId)) }
@@ -67,7 +73,7 @@ fun DetailScreen(
     LaunchedEffect(subjectId) { vm.loadDetail(CatalogItem(subjectId, title, "movie")) }
 
     Box(Modifier.fillMaxSize()) {
-        if (state.loading || detail == null && err == null) {
+        if (state.loading || (detail == null && err == null)) {
             FullScreenLoading()
         } else if (err != null) {
             ErrorState(err) { vm.loadDetail(CatalogItem(subjectId, title, "movie")) }
@@ -78,10 +84,16 @@ fun DetailScreen(
                 streaming = state.streaming,
                 fav = fav,
                 onFav = {
-                    vm.toggleFavorite(CatalogItem(detail.id, detail.title, detail.type, detail.year, detail.poster))
+                    vm.toggleFavorite(
+                        CatalogItem(detail.id, detail.title, detail.type, detail.year, detail.poster)
+                    )
                 },
                 onPlay = onPlay,
                 onBack = onBack,
+                onOpen = onOpen,
+                onLoadStreams = { s, e ->
+                    vm.loadStreams(detail, CatalogItem(detail.id, detail.title, detail.type))
+                },
             )
         }
     }
@@ -89,21 +101,26 @@ fun DetailScreen(
 
 @Composable
 private fun DetailContent(
-    detail: app.moviebox.data.MediaDetail,
+    detail: MediaDetail,
     streams: List<Stream>,
     streaming: Boolean,
     fav: Boolean,
     onFav: () -> Unit,
-    onPlay: (Stream) -> Unit,
+    onPlay: (Stream, Int, Int) -> Unit,
     onBack: () -> Unit,
+    onOpen: (CatalogItem) -> Unit,
+    onLoadStreams: (Int, Int) -> Unit,
 ) {
+    var selectedSeason by remember(detail.id) { mutableStateOf(0) }
+    var selectedEpisode by remember(detail.id) { mutableStateOf(0) }
+
     LazyColumn(Modifier.fillMaxSize()) {
         // backdrop hero
         item {
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(280.dp)
+                    .height(300.dp)
                     .background(Color(0xFF1A1F33))
             ) {
                 SubcomposeAsyncImage(
@@ -118,41 +135,56 @@ private fun DetailContent(
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color.Transparent, Color(0xF20B0E14), Color(0xFF0B0E14))
-                            )
-                        )
+                        .background(Brush.verticalGradient(Palette.heroGradient))
                 )
+                // glass circle back / fav buttons
                 IconButton(onClick = onBack, modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(12.dp)) {
+                    .padding(12.dp)
+                    .clip(CircleShape)
+                    .background(Palette.glassFillStrong)
+                    .border(0.5.dp, Palette.glassBorder, CircleShape)) {
                     Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
                 IconButton(onClick = onFav, modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(12.dp)) {
+                    .padding(12.dp)
+                    .clip(CircleShape)
+                    .background(Palette.glassFillStrong)
+                    .border(0.5.dp, Palette.glassBorder, CircleShape)) {
                     Icon(
                         if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = "Favorite",
-                        tint = Color.White,
+                        tint = if (fav) Palette.star else Color.White,
                     )
                 }
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(16.dp)) {
-                    Text(detail.title, style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        detail.year?.let {
-                            Text("$it  ", style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        detail.rating?.let {
-                            Text("★ $it  ", style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFFFFC107))
-                        }
-                        detail.duration?.let {
-                            Text("· $it", style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // glass title block
+                Box(
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .background(Palette.glassFill, RoundedCornerShape(16.dp))
+                        .border(0.5.dp, Palette.glassBorder, RoundedCornerShape(16.dp))
+                        .padding(14.dp)
+                ) {
+                    Column {
+                        Text(detail.title, style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 4.dp)) {
+                            detail.year?.let {
+                                Text("$it  ", style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            detail.rating?.let {
+                                Text("★ $it  ", style = MaterialTheme.typography.bodySmall,
+                                    color = Palette.star)
+                            }
+                            detail.duration?.let {
+                                Text("· $it", style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
@@ -161,41 +193,76 @@ private fun DetailContent(
 
         // meta
         item {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                detail.genres.takeIf { it.isNotEmpty() }?.let { g ->
-                    Row(Modifier.padding(bottom = 8.dp)) {
-                        g.forEachIndexed { i, genre ->
-                            QualityChip(genre)
-                            if (i < g.lastIndex) Spacer()
+            GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Column(Modifier.padding(14.dp)) {
+                    detail.genres.takeIf { it.isNotEmpty() }?.let { g ->
+                        Row(Modifier.padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            g.forEach { GlassPill(it) }
                         }
                     }
-                }
-                detail.description?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    detail.description?.takeIf { it.isNotBlank() }?.let {
+                        Text(it, style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
 
-        // seasons
+        // seasons + episodes
         if (detail.type == "series" && detail.seasons.isNotEmpty()) {
             item {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text("Seasons", style = MaterialTheme.typography.titleMedium,
+                    Text("Episodes", style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold)
                     detail.seasons.forEach { season ->
-                        Text("Season ${season.number}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
                         Row(
-                            modifier = Modifier.padding(bottom = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp, bottom = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            season.episodes.forEach { ep ->
-                                OutlinedButton(
-                                    onClick = { /* TODO: episode streams */ },
-                                    shape = RoundedCornerShape(10.dp),
-                                ) { Text("E${ep.number}") }
+                            GlassPill(
+                                "Season ${season.number}",
+                                strong = selectedSeason == season.number,
+                            )
+                            androidx.compose.material3.IconButton(
+                                onClick = {
+                                    selectedSeason = season.number
+                                    selectedEpisode = 0
+                                    onLoadStreams(season.number, 0)
+                                },
+                            ) {
+                                Icon(Icons.Filled.PlayArrow, contentDescription = "Play season",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        if (selectedSeason == season.number) {
+                            Row(
+                                modifier = Modifier.padding(bottom = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                season.episodes.forEach { ep ->
+                                    val active = selectedEpisode == ep.number
+                                    GlassCard(
+                                        onClick = {
+                                            selectedEpisode = ep.number
+                                            onLoadStreams(season.number, ep.number)
+                                        },
+                                        modifier = Modifier.width(56.dp).height(40.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                    ) {
+                                        Box(
+                                            Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text("E${ep.number}", fontWeight = FontWeight.Bold,
+                                                color = if (active) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.onSurface)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -206,8 +273,7 @@ private fun DetailContent(
         // streams
         item {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text("Available Streams", style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold)
+                RowTitle("Available Streams")
                 Text(
                     if (streams.isEmpty()) "No streams found for this title." else
                         "${streams.size} mirror(s) available",
@@ -219,7 +285,17 @@ private fun DetailContent(
                     Text("Loading streams…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 streams.forEach { stream ->
-                    StreamCard(stream, onPlay = { onPlay(stream) })
+                    StreamCard(stream, onPlay = { onPlay(stream, selectedSeason, selectedEpisode) })
+                }
+            }
+        }
+
+        // more like this
+        if (detail.similars.isNotEmpty()) {
+            item {
+                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    RowTitle("More Like This")
+                    RowLazy(detail.similars.take(20), onOpen)
                 }
             }
         }
@@ -229,12 +305,7 @@ private fun DetailContent(
 
 @Composable
 private fun StreamCard(stream: Stream, onPlay: () -> Unit) {
-    Card(
-        onClick = onPlay,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-    ) {
+    GlassCard(onClick = onPlay, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(
             Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -256,6 +327,3 @@ private fun StreamCard(stream: Stream, onPlay: () -> Unit) {
         }
     }
 }
-
-@Composable
-private fun Spacer() { Box(Modifier.width(8.dp).height(0.dp)) }

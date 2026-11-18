@@ -1,5 +1,7 @@
 package app.moviebox.ui.player
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -28,6 +30,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.PlayerView
 import app.moviebox.ui.Route
+import app.moviebox.ui.theme.Palette
 
 @Composable
 fun PlayerScreen(
@@ -90,6 +93,8 @@ fun PlayerScreen(
                 .align(Alignment.TopStart)
                 .padding(12.dp)
                 .clip(CircleShape)
+                .background(Palette.glassFillStrong)
+                .border(0.5.dp, Palette.glassBorder, CircleShape)
                 .padding(4.dp),
         ) {
             Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
