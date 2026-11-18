@@ -189,7 +189,7 @@ object MovieBoxSigner {
         val accept = "application/json"
         val contentType = "application/json"
         val buildTag = generateBuildTag(ts)
-        val clientInfo = baseClientInfo.replaceFirst(
+        val clientInfo = baseClientInfo.replace(
             "\"X-Play-Mode\":\"2\"}",
             "\"X-Play-Mode\":\"2\",\"X-Client-Build\":\"$buildTag\"}",
         )

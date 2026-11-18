@@ -16,7 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import app.moviebox.ui.home.HomeScreen
@@ -54,8 +54,8 @@ sealed class Route {
 
 @Composable
 fun MovieBoxApp(vm: MovieBoxViewModel = viewModel()) {
-    var route by rememberSaveable { mutableStateOf<Route>(Route.Tabs) }
-    var activeTab by rememberSaveable { mutableStateOf(Tab.Home) }
+    var route by remember { mutableStateOf<Route>(Route.Tabs) }
+    var activeTab by remember { mutableStateOf(Tab.Home) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),

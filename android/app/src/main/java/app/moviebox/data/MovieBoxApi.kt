@@ -45,7 +45,7 @@ class MovieBoxApi {
                     put("channel", "ps")
                 })
             }
-            val raw = request("POST", "/wefeed-mobile-bff/user-api/visitor-login", body.toString())
+            val raw = request("POST", "/wefeed-mobile-bff/user-api/visitor-login", body.toString(), currentHost() + "/wefeed-mobile-bff/user-api/visitor-login")
             val data = raw.optJSONObject("data") ?: raw
             val t = data.optString("token").ifBlank { data.optString("accessToken") }
             if (t.isNotBlank()) token = t
@@ -83,7 +83,7 @@ class MovieBoxApi {
 
     private class HttpError(val code: Int, msg: String) : Exception(msg)
 
-    private fun request(method: String, path: String, body: String?, url: String = currentHost() + path): JSONObject {
+    private fun request(method: String, path: String, body: String?, url: String): JSONObject {
         val headers = MovieBoxSigner.buildHeaders(method, url, body, token)
         val builder = Request.Builder().url(url)
         headers.toMap().forEach { (k, v) -> builder.header(k, v) }
