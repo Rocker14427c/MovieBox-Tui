@@ -66,20 +66,18 @@ jobs:
 
       - name: Capture build log on failure
         if: failure()
+        continue-on-error: true
         run: |
           {
             echo "## Android build failed (sha ${{ github.sha }})"
             echo ""
-            grep -nE "^e: |error:|FAILURE:|What went wrong|Execution failed|Caused by|> Task .*FAILED" /tmp/build.log | tail -250
-            echo ""
-            echo "----- tail of build log -----"
-            tail -40 /tmp/build.log
+            grep -nE "^e: |error:|FAILURE:|What went wrong|Execution failed|Caused by|> Task .*FAILED" /tmp/build.log | tail -200
           } > /tmp/error.log
-          # Contents API caps file content at ~1 MB; truncate if needed.
-          if [ "$(wc -c < /tmp/error.log)" -gt 900000 ]; then
-            head -c 900000 /tmp/error.log > /tmp/error.log.tmp && mv /tmp/error.log.tmp /tmp/error.log
+          if [ "$(wc -c < /tmp/error.log)" -gt 150000 ]; then
+            head -c 150000 /tmp/error.log > /tmp/error.log.tmp && mv /tmp/error.log.tmp /tmp/error.log
           fi
           CONTENT=$(base64 -w0 /tmp/error.log)
+          echo "payload bytes: ${#CONTENT}"
           gh api "repos/${{ github.repository }}/contents/android/build-error.log" \
             -X PUT \
             -f message="ci(android): capture failing build log" \
