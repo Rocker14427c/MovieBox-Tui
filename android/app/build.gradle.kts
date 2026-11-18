@@ -15,6 +15,23 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+
+    // Stable release signing — the keystore is committed so every CI build
+    // produces an APK with an identical signature (in-place updates, no reinstall).
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("release.keystore.p12")
+            storePassword = "moviebox"
+            keyAlias = "moviebox"
+            keyPassword = "moviebox"
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+        }
+    }
 }
 
 dependencies {
