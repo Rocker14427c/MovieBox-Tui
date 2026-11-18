@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: android-build-${{ github.ref }}
@@ -60,9 +61,27 @@ jobs:
 
       - name: Build debug APK
         working-directory: android
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace --console=plain 2>&1 | tee /tmp/build.log
+
+      - name: Report build failure
+        if: failure()
+        run: |
+          {
+            echo "## Android build failed on ${{ github.sha }}"
+            echo ""
+            echo "```"
+            # Show the tail of the build log plus any compile errors.
+            grep -nE "^e: |error:|FAILURE|What went wrong|Execution failed|Caused by|> Task .*FAILED" /tmp/build.log | tail -80
+            echo "----- last 60 lines -----"
+            tail -60 /tmp/build.log
+            echo "```"
+          } > /tmp/report.md
+          gh issue create --title "Android build failure (${{ github.sha }})" --body-file /tmp/report.md
 
       - name: Upload APK artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: moviebox-debug-apk
