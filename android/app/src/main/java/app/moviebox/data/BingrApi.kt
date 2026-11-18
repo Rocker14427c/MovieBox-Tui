@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 
 /**
@@ -109,9 +110,11 @@ class BingrApi {
         // Fetch title/year to include in the stream query (helps server matching).
         val meta = try { details(id, type) } catch (_: Exception) { null }
 
-        val results = servers.map { srv ->
-            async(Dispatchers.IO) { requestServer(srv, id, t, season, episode, meta) }
-        }.awaitAll()
+        val results = coroutineScope {
+            servers.map { srv ->
+                async(Dispatchers.IO) { requestServer(srv, id, t, season, episode, meta) }
+            }.awaitAll()
+        }
 
         val merged = LinkedHashMap<String, Stream>()
         for (res in results) {
