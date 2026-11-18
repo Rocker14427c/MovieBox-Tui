@@ -13,8 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  issues: write
+  contents: write
 
 concurrency:
   group: android-build-${{ github.ref }}
@@ -65,20 +64,17 @@ jobs:
           set -o pipefail
           ./gradlew :app:assembleDebug --no-daemon --stacktrace --console=plain 2>&1 | tee /tmp/build.log
 
-      - name: Report build failure
+      - name: Capture build log on failure
         if: failure()
         run: |
-          {
-            echo "## Android build failed on ${{ github.sha }}"
-            echo ""
-            echo "```"
-            # Show the tail of the build log plus any compile errors.
-            grep -nE "^e: |error:|FAILURE|What went wrong|Execution failed|Caused by|> Task .*FAILED" /tmp/build.log | tail -80
-            echo "----- last 60 lines -----"
-            tail -60 /tmp/build.log
-            echo "```"
-          } > /tmp/report.md
-          gh issue create --title "Android build failure (${{ github.sha }})" --body-file /tmp/report.md
+          cp /tmp/build.log android/build-error.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/build-error.log
+          if ! git diff --cached --quiet; then
+            git commit -m "ci(android): capture failing build log"
+            git push
+          fi
 
       - name: Upload APK artifact
         if: success()
