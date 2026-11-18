@@ -24,13 +24,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.upstream.DefaultHttpDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.PlayerView
-import app.moviebox.ui.MovieBoxApp
+import app.moviebox.ui.Route
 
 @Composable
 fun PlayerScreen(
-    route: MovieBoxApp.Route.Play,
+    route: Route.Play,
     vm: app.moviebox.ui.viewmodel.MovieBoxViewModel,
     onBack: () -> Unit,
     onFinished: () -> Unit,

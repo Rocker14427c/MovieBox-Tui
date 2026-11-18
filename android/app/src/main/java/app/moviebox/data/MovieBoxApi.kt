@@ -311,7 +311,9 @@ class MovieBoxApi {
             val out = mutableListOf<Subtitle>()
             val seen = mutableSetOf<String>()
             val items = caps?.let { c ->
-                c.optJSONArray("list") ?: c.optJSONArray("captions") ?: c.names()?.toList()?.firstOrNull()?.let { c.optJSONArray(it) }
+                c.optJSONArray("list")
+                    ?: c.optJSONArray("captions")
+                    ?: run { val k = c.names()?.firstOrNull(); if (k != null) c.optJSONArray(k) else null }
             }
             items?.let { arr ->
                 for (i in 0 until arr.length()) {

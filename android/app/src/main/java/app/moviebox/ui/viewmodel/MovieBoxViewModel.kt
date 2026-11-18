@@ -145,13 +145,15 @@ class MovieBoxViewModel(app: Application) : AndroidViewModel(app) {
     fun loadPlaylist(url: String) {
         _channelsLoading.value = true
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
+            try {
                 val channels = M3UParser.loadPlaylist(url)
                 _channels.value = channels
                 store.saveSettings(store.loadSettings() + mapOf("playlist_url" to url))
-            }.onFailure {
+            } catch (_: Exception) {
                 _channels.value = emptyList()
-            }.onFinally { _channelsLoading.value = false }
+            } finally {
+                _channelsLoading.value = false
+            }
         }
     }
 

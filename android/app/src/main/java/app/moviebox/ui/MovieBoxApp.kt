@@ -29,7 +29,7 @@ import app.moviebox.ui.theme.MovieBoxTheme
 import app.moviebox.ui.viewmodel.MovieBoxViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-enum class Tab(val label: String, val icon: androidx.compose.material.icons.Icons) {
+enum class Tab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Home(label = "Home", icon = Icons.Filled.Home),
     Search(label = "Search", icon = Icons.Filled.Search),
     Live(label = "Live", icon = Icons.Filled.Tv),

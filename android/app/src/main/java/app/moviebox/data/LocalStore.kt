@@ -40,7 +40,7 @@ class LocalStore(private val dir: File) {
     }
 
     fun updatePosition(point: ResumePoint) {
-        val items = loadHistory().filterNot { it.id == point.id }
+        val items = loadHistory().filterNot { it.id == point.id }.toMutableList()
         items.add(point)
         saveHistory(items)
     }
@@ -57,7 +57,7 @@ class LocalStore(private val dir: File) {
                 backdrop = o.optString("backdrop").ifBlank { null },
                 rating = o.optString("rating").ifBlank { null },
                 description = o.optString("description").ifBlank { null },
-                genres = JSONArray(o.optString("genres")).let { (0 until it.length()).map { it.getString(it) } }.ifEmpty { emptyList() },
+                genres = JSONArray(o.optString("genres")).let { arr -> (0 until arr.length()).map { arr.getString(it) } }.ifEmpty { emptyList() },
             ))
         }
         return out
