@@ -34,38 +34,22 @@ jobs:
         run: |
           set +e
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-          STREAM="https://api.bingr.one/api/stream"
           {
-            echo "### DIAG4 $(date -u +%FT%TZ) ###"; echo
+            echo "### DIAG5 $(date -u +%FT%TZ) ###"; echo
             for spec in "movie/1368337" "tv/84773"; do
               echo "########## watch $spec ##########"
               curl -s -m 25 -o /tmp/w.html -w "HTTP:%{http_code} bytes:%{size_download}\n" -H "User-Agent: $UA" -H "Accept: text/html,application/xhtml+xml" "https://bingr.one/watch/$spec"
-              echo "--- all m3u8/mp4/hls URLs (raw) ---"
-              grep -oE "https?://[^\"' <>\\\\]+" /tmp/w.html 2>/dev/null | grep -iE "m3u8|mp4|\.m3u|dash-hls|sacdn|workers" | sort -u | head -20
-              echo "--- python extraction ---"
-              python3 - <<'PY'
-import re,html,urllib.parse
-t=open('/tmp/w.html',encoding='utf-8',errors='ignore').read()
-# find m3u8 urls (possibly percent-encoded inside a workers proxy)
-cands=set()
-for m in re.finditer(r'[^"\'<>\s\\\\]{0,200}(?:m3u8|master\.m3u8|workers\.dev/\?url=)[^"\'<>\s\\\\]{0,400}', t):
-    cands.add(html.unescape(m.group(0))[:500])
-# also try decoding %3A etc in any workers url
-for m in re.finditer(r'https?://[^\s"\'<>]+', t):
-    u=html.unescape(m.group(0))
-    if 'workers.dev' in u or 'm3u8' in u or 'sacdn' in u:
-        cands.add(u[:500])
-print("COUNT:",len(cands))
-for c in sorted(cands)[:15]:
-    print("URL:", c[:280])
-PY
+              echo "--- stream-ish URLs (raw, unique) ---"
+              grep -oE 'https?://[^"'"'"' <>]+' /tmp/w.html 2>/dev/null | grep -iE 'm3u8|mp4|dash-hls|sacdn|workers|aphelion' | sort -u | head -12
+              echo "--- count of m3u8 mentions ---"
+              grep -oicE 'm3u8' /tmp/w.html 2>/dev/null
               echo
             done
           } > api-diag.log 2>&1
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f api-diag.log
-          git commit -m "ci(android): API diagnostic4 $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
+          git commit -m "ci(android): API diagnostic5 $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
           git push --force origin HEAD:refs/heads/ci-api-diag 2>&1 | tail -2 || true
 
       - name: Set up JDK 17
