@@ -35,29 +35,37 @@ jobs:
           set +e
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
           STREAM="https://api.bingr.one/api/stream"
-          BODY='{"srv":"s40","t":"movie","id":"1368337","query":{"title":"The Odyssey","year":"2026"}}'
           {
-            echo "### DIAG3 $(date -u +%FT%TZ) ###"; echo
-            echo "=== 1) watch page HTML ==="
-            curl -s -m 20 -o /tmp/watch.html -w "HTTP:%{http_code} bytes:%{size_download}\n" -H "User-Agent: $UA" -H "Accept: text/html,application/xhtml+xml" "https://bingr.one/watch/movie/1368337"
-            echo "--- URLs containing stream/m3u8/mp4/api/bingr ---"
-            grep -oE "https?://[^\"' <>]+" /tmp/watch.html 2>/dev/null | grep -iE "stream|m3u8|mp4|api|bingr" | sort -u | head -25
-            echo "--- lines mentioning stream/api ---"
-            grep -iE "stream|/api/|m3u8" /tmp/watch.html 2>/dev/null | head -8
-            echo
-            echo "=== 2) POST https://bingr.one/api/stream ==="
-            curl -s -m 20 -o /tmp/r.out -w "HTTP:%{http_code} bytes:%{size_download}\n" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" -H "Content-Type: application/json" -d "$BODY" "https://bingr.one/api/stream"; head -c 180 /tmp/r.out; echo; echo
-            echo "=== 3) POST https://api.bingr.one/stream (no /api) ==="
-            curl -s -m 20 -o /tmp/r.out -w "HTTP:%{http_code} bytes:%{size_download}\n" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" -H "Content-Type: application/json" -d "$BODY" "https://api.bingr.one/stream"; head -c 180 /tmp/r.out; echo; echo
-            echo "=== 4) Cloudflare block reason ==="
-            curl -s -m 20 -o /tmp/cf.html -w "HTTP:%{http_code}\n" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" -H "Content-Type: application/json" -d "$BODY" "$STREAM"
-            grep -oE "(cf-ray|cf-mitigated|challenge|managed|cf-error-detail|Ray ID|reason)[^<]{0,90}" /tmp/cf.html 2>/dev/null | head -8
-            echo "--- title ---"; grep -oE "<title>[^<]*</title>" /tmp/cf.html 2>/dev/null | head -2
+            echo "### DIAG4 $(date -u +%FT%TZ) ###"; echo
+            for spec in "movie/1368337" "tv/84773"; do
+              echo "########## watch $spec ##########"
+              curl -s -m 25 -o /tmp/w.html -w "HTTP:%{http_code} bytes:%{size_download}\n" -H "User-Agent: $UA" -H "Accept: text/html,application/xhtml+xml" "https://bingr.one/watch/$spec"
+              echo "--- all m3u8/mp4/hls URLs (raw) ---"
+              grep -oE "https?://[^\"' <>\\\\]+" /tmp/w.html 2>/dev/null | grep -iE "m3u8|mp4|\.m3u|dash-hls|sacdn|workers" | sort -u | head -20
+              echo "--- python extraction ---"
+              python3 - <<'PY'
+import re,html,urllib.parse
+t=open('/tmp/w.html',encoding='utf-8',errors='ignore').read()
+# find m3u8 urls (possibly percent-encoded inside a workers proxy)
+cands=set()
+for m in re.finditer(r'[^"\'<>\s\\\\]{0,200}(?:m3u8|master\.m3u8|workers\.dev/\?url=)[^"\'<>\s\\\\]{0,400}', t):
+    cands.add(html.unescape(m.group(0))[:500])
+# also try decoding %3A etc in any workers url
+for m in re.finditer(r'https?://[^\s"\'<>]+', t):
+    u=html.unescape(m.group(0))
+    if 'workers.dev' in u or 'm3u8' in u or 'sacdn' in u:
+        cands.add(u[:500])
+print("COUNT:",len(cands))
+for c in sorted(cands)[:15]:
+    print("URL:", c[:280])
+PY
+              echo
+            done
           } > api-diag.log 2>&1
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f api-diag.log
-          git commit -m "ci(android): API diagnostic3 $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
+          git commit -m "ci(android): API diagnostic4 $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
           git push --force origin HEAD:refs/heads/ci-api-diag 2>&1 | tail -2 || true
 
       - name: Set up JDK 17
