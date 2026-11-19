@@ -142,6 +142,7 @@ class BingrApi {
             .findAll(html)
             .map { it.value }
             .distinct()
+            .toList()
 
     /**
      * Cleans a raw extracted URL: strips trailing escape/quote artifacts and decodes
