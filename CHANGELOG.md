@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- **Native Android App**: Added a full native Android port in `android/` (Compose, in-app ExoPlayer, Live TV, favorites, continue-watching) — a single APK with no Termux setup required. See `android/README.md` and `android/build.sh`.
+
+### Fixed
+- **Providers & Stream Resolution**:
+  - Restored MovieBox **series** streaming via the H5 web play endpoint (`/wefeed-h5-bff/web/subject/play`), which returns real signed MP4s even though the mobile `play-info` endpoint only serves the site trailer. The H5 request requires the subject's `detailUrl` slug as its `Referer`.
+  - Refreshed the MovieBox detector parser to read `resourceDetectors[].resolutionList[]` per entry (real links for movies), filter the deprecation/trailer clip, and apply the correct per-mirror headers (MovieBox app User-Agent only; the official-web `Referer` for H5 mirrors).
+
 ## [0.1.29] - 2026-11-05
 
 ### Fixed

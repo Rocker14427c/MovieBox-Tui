@@ -15,6 +15,10 @@
 
 [moviebox-tui-walkthrough.webm](https://github.com/user-attachments/assets/7554a7e5-6ff5-49ec-9d87-f821ea99950e)
 
+## 🎉 Native Android App
+
+A full native Android port now lives in [`android/`](android/README.md) — **one APK, no Termux, no terminal setup**. It speaks the same MovieBox backend the TUI uses, with a premium Material 3 interface (hero rails, in-app player, live TV, favorites, continue-watching). Streaming is fixed to resolve real playable links (movie detector `resolutionList` links + the H5 web play endpoint for series) instead of the site trailer. See **[android/README.md](android/README.md)** for build instructions.
+
 ## Features
 
 - **Streaming:** Movies, TV series, anime, Asian dramas, and community Stremio addons across multiple native providers.
@@ -65,7 +69,9 @@ irm https://raw.githubusercontent.com/mesamirh/MovieBox-Tui/main/install.ps1 | i
 
 > **SmartScreen prompt:** If Windows displays *"Windows protected your PC"*, click **More info** → **Run anyway**.
 
-### Android (Termux)
+### Android
+- **Native app (recommended):** build the APK from [`android/`](android/README.md) — no setup required.
+- **Termux (legacy TUI):**
 ```bash
 pkg update && pkg install -y curl tar termux-tools termux-am
 curl -fsSL https://raw.githubusercontent.com/mesamirh/MovieBox-Tui/main/install.sh | bash

@@ -1,0 +1,130 @@
+name: Android Build
+
+on:
+  push:
+    branches: [main, arena/2da5203f-moviebox-tui]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-build.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    name: Build & release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK packages
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -1)"
+          fi
+          if [ -z "${SDKMANAGER:-}" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "sdkmanager not found under $ANDROID_HOME" >&2
+            exit 1
+          fi
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Write local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+
+      - name: Build debug + release APK
+        working-directory: android
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace --console=plain 2>&1 | tee /tmp/build.log
+
+      - name: Capture build log on failure
+        if: failure()
+        continue-on-error: true
+        run: |
+          set +e
+          {
+            echo "## Android build failed (sha ${{ github.sha }})"
+            echo ""
+            grep -nE -A4 "^e: " /tmp/build.log | tail -300
+            echo ""
+            echo "---- tail ----"
+            tail -40 /tmp/build.log
+          } > android/build-error.log 2>&1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # *.log is gitignored; force-add so the commit actually contains the log.
+          git add -f android/build-error.log
+          git commit -m "ci(android): capture failing build log"
+          # Push to a dedicated diagnostic branch to avoid shallow/divergence issues.
+          git push --force origin HEAD:refs/heads/ci-build-log 2>&1
+          echo "capture exit: $?"
+
+      - name: Upload debug APK artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moviebox-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish signed release APK to GitHub Release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RELEASE_APK="android/app/build/outputs/apk/release/app-release.apk"
+          [ -f "$RELEASE_APK" ] || { echo "release APK not found: $RELEASE_APK"; exit 1; }
+          NOTES="MovieBox Android release APK
+
+          Build: \`${{ github.sha }}\`
+          Signed with the committed keystore (stable signature — update in-place, no reinstall).
+
+          Install: enable \`Install unknown apps\` for your browser, then open the downloaded APK."
+          if gh release view latest >/dev/null 2>&1; then
+            gh release upload latest "$RELEASE_APK" --clobber
+            gh release edit latest --title "MovieBox Android" --notes "$NOTES"
+          else
+            gh release create latest --title "MovieBox Android" --notes "$NOTES" "$RELEASE_APK"
+          fi
+          echo "Release APK published:"
+          gh release view latest --json url --jq '.url'
+
+      - name: Upload build outputs (for debugging)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moviebox-build-outputs
+          path: |
+            android/app/build/outputs
+            android/app/build/reports
+          if-no-files-found: ignore
+          retention-days: 7
