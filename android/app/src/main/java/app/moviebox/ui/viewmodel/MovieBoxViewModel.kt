@@ -168,3 +168,5 @@ class MovieBoxViewModel(app: Application) : AndroidViewModel(app) {
         seasonCount = seasons.size,
     )
 }
+
+// Play-button flow: movies auto-load streams on detail; series auto-select S1E1 and load.
