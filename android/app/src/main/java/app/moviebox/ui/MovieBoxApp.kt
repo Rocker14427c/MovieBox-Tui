@@ -41,7 +41,7 @@ enum class Tab(val label: String, val icon: androidx.compose.ui.graphics.vector.
 
 sealed class Route {
     object Tabs : Route()
-    data class Detail(val id: String, val title: String) : Route()
+    data class Detail(val id: String, val title: String, val type: String) : Route()
     data class Play(
         val title: String,
         val url: String,
@@ -92,8 +92,9 @@ fun MovieBoxApp(vm: MovieBoxViewModel) {
                     vm = vm,
                     subjectId = r.id,
                     title = r.title,
+                    type = r.type,
                     onBack = { route = Route.Tabs },
-                    onOpen = { route = Route.Detail(it.id, it.title) },
+                    onOpen = { route = Route.Detail(it.id, it.title, it.type) },
                     onPlay = { st, season, episode ->
                         route = Route.Play(
                             title = r.title, url = st.url,
@@ -107,13 +108,13 @@ fun MovieBoxApp(vm: MovieBoxViewModel) {
                 is Route.Play -> PlayerScreen(
                     route = r,
                     vm = vm,
-                    onBack = { route = Route.Detail(r.id, r.title) },
+                    onBack = { route = Route.Detail(r.id, r.title, r.type) },
                     onFinished = { route = Route.Tabs },
                 )
                 Route.Tabs -> when (activeTab) {
-                    Tab.Home -> HomeScreen(vm, onOpen = { route = Route.Detail(it.id, it.title) })
-                    Tab.Search -> SearchScreen(vm, onOpen = { route = Route.Detail(it.id, it.title) })
-                    Tab.Library -> LibraryScreen(vm, onOpen = { route = Route.Detail(it.id, it.title) })
+                    Tab.Home -> HomeScreen(vm, onOpen = { route = Route.Detail(it.id, it.title, it.type) })
+                    Tab.Search -> SearchScreen(vm, onOpen = { route = Route.Detail(it.id, it.title, it.type) })
+                    Tab.Library -> LibraryScreen(vm, onOpen = { route = Route.Detail(it.id, it.title, it.type) })
                 }
             }
         }

@@ -123,7 +123,10 @@ class MovieBoxViewModel(app: Application) : AndroidViewModel(app) {
             runCatching { api.details(item.id, item.type) }
                 .onSuccess { d ->
                     _detail.value = DetailState(loading = false, detail = d)
-                    loadStreams(d, item)
+                    // Movies can load their (seasonless) streams immediately.
+                    // Series streams depend on a selected season/episode, which the
+                    // Detail screen auto-selects and loads once the detail arrives.
+                    if (d.type == "movie") loadStreams(d, item)
                 }
                 .onFailure { _detail.value = DetailState(loading = false, error = it.message ?: "Details failed") }
         }

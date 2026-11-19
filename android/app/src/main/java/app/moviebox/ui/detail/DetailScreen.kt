@@ -61,6 +61,7 @@ fun DetailScreen(
     vm: MovieBoxViewModel,
     subjectId: String,
     title: String,
+    type: String,
     onBack: () -> Unit,
     onPlay: (Stream, Int, Int) -> Unit,
     onOpen: (CatalogItem) -> Unit,
@@ -70,13 +71,13 @@ fun DetailScreen(
     val detail = state.detail
     val err = state.error
 
-    LaunchedEffect(subjectId) { vm.loadDetail(CatalogItem(subjectId, title, "movie")) }
+    LaunchedEffect(subjectId) { vm.loadDetail(CatalogItem(subjectId, title, type)) }
 
     Box(Modifier.fillMaxSize()) {
         if (state.loading || (detail == null && err == null)) {
             FullScreenLoading()
         } else if (err != null) {
-            ErrorState(err) { vm.loadDetail(CatalogItem(subjectId, title, "movie")) }
+            ErrorState(err) { vm.loadDetail(CatalogItem(subjectId, title, type)) }
         } else if (detail != null) {
             DetailContent(
                 detail = detail,
@@ -92,7 +93,7 @@ fun DetailScreen(
                 onBack = onBack,
                 onOpen = onOpen,
                 onLoadStreams = { s, e ->
-                    vm.loadStreams(detail, CatalogItem(detail.id, detail.title, detail.type))
+                    vm.loadStreams(detail, CatalogItem(detail.id, detail.title, detail.type), s, e)
                 },
             )
         }
@@ -113,6 +114,33 @@ private fun DetailContent(
 ) {
     var selectedSeason by remember(detail.id) { mutableStateOf(0) }
     var selectedEpisode by remember(detail.id) { mutableStateOf(0) }
+    var pendingPlay by remember(detail.id) { mutableStateOf(false) }
+
+    // For series, auto-select the first season/episode and pre-load its streams
+    // so a Play press always has a valid, playable mirror.
+    LaunchedEffect(detail.id, detail.seasons) {
+        if (detail.type == "series" && detail.seasons.isNotEmpty()) {
+            if (selectedSeason == 0) {
+                selectedSeason = detail.seasons.first().number
+                selectedEpisode = 1
+                onLoadStreams(selectedSeason, selectedEpisode)
+            }
+        }
+    }
+
+    // Effective season/episode: series default to the first season / episode 1.
+    val effSeason = if (detail.type == "series" && selectedSeason == 0)
+        detail.seasons.firstOrNull()?.number ?: 0 else selectedSeason
+    val effEpisode = if (detail.type == "series" && (selectedEpisode == 0 || selectedSeason == 0)) 1
+        else selectedEpisode
+
+    // If the user pressed Play before streams arrived, play the best mirror once loaded.
+    LaunchedEffect(streams) {
+        if (pendingPlay && streams.isNotEmpty()) {
+            pendingPlay = false
+            onPlay(streams.first(), effSeason, effEpisode)
+        }
+    }
 
     LazyColumn(Modifier.fillMaxSize()) {
         // backdrop hero
@@ -185,6 +213,24 @@ private fun DetailContent(
                                 Text("· $it", style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+                        }
+                        // Prominent Play button — plays the best mirror, loading streams first if needed
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                if (streams.isNotEmpty()) {
+                                    onPlay(streams.first(), effSeason, effEpisode)
+                                } else {
+                                    pendingPlay = true
+                                    onLoadStreams(effSeason, effEpisode)
+                                }
+                            },
+                            enabled = !streaming,
+                            modifier = Modifier.padding(top = 12.dp),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = null,
+                                modifier = Modifier.size(18.dp))
+                            Text("Play", Modifier.padding(start = 6.dp))
                         }
                     }
                 }
@@ -285,7 +331,7 @@ private fun DetailContent(
                     Text("Loading streams…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 streams.forEach { stream ->
-                    StreamCard(stream, onPlay = { onPlay(stream, selectedSeason, selectedEpisode) })
+                    StreamCard(stream, onPlay = { onPlay(stream, effSeason, effEpisode) })
                 }
             }
         }
