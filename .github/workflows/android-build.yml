@@ -33,24 +33,32 @@ jobs:
       - name: API diagnostic (bingr.one)
         run: |
           set +e
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+          STREAM="https://api.bingr.one/api/stream"
+          BODY='{"srv":"s40","t":"movie","id":"1368337","query":{"title":"The Odyssey","year":"2026"}}'
+          try() {
+            local label="$1"; shift
+            echo "=== $label ==="
+            curl -s -m 20 -o /tmp/r.out -w "HTTP:%{http_code} bytes:%{size_download}\n" "$@"
+            head -c 220 /tmp/r.out; echo; echo
+          }
           {
-            echo "### DIAG $(date -u +%FT%TZ) ###"; echo
-            echo "=== 1) GET /details/movie/1368337 ==="
-            curl -s -m 20 -w "\nHTTP:%{http_code}\n" -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" "https://api.bingr.one/api/details/movie/1368337" | head -c 1200; echo
-            echo "=== 2) POST /stream s40 movie 1368337 ==="
-            curl -s -m 25 -w "\nHTTP:%{http_code}\n" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" -H "Content-Type: application/json" -d '{"srv":"s40","t":"movie","id":"1368337","query":{"title":"Dune","year":"2021"}}' "https://api.bingr.one/api/stream" | head -c 1200; echo
-            echo "=== 3) POST /stream s70 movie 1368337 ==="
-            curl -s -m 25 -w "\nHTTP:%{http_code}\n" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" -H "Content-Type: application/json" -d '{"srv":"s70","t":"movie","id":"1368337","query":{"title":"Dune","year":"2021"}}' "https://api.bingr.one/api/stream" | head -c 1200; echo
-            echo "=== 4) POST /stream s40 tv 84773 S1E1 ==="
-            curl -s -m 25 -w "\nHTTP:%{http_code}\n" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" -H "Content-Type: application/json" -d '{"srv":"s40","t":"tv","id":"84773","query":{"title":"The Night Manager","year":"2016","season":1,"episode":1}}' "https://api.bingr.one/api/stream" | head -c 1200; echo
-            echo "=== 5) GET /stream/aphelion-tv/84773/1/1 ==="
-            curl -s -m 25 -w "\nHTTP:%{http_code}\n" -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" "https://api.bingr.one/api/stream/aphelion-tv/84773/1/1" | head -c 1200; echo
+            echo "### DIAG2 $(date -u +%FT%TZ) ###"; echo
+            try "A baseline POST" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" -H "Content-Type: application/json" -d "$BODY" "$STREAM"
+            try "B +SecFetch+Accept" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" -H "Content-Type: application/json" -H "Accept: application/json, text/plain, */*" -H "Accept-Language: en-US,en;q=0.9" -H "Sec-Fetch-Site: same-origin" -H "Sec-Fetch-Mode: cors" -H "Sec-Fetch-Dest: empty" -H "Sec-Fetch-User: ?1" -d "$BODY" "$STREAM"
+            try "C Referer=watch" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/watch/movie/1368337" -H "Content-Type: application/json" -d "$BODY" "$STREAM"
+            try "D full browser" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/watch/movie/1368337" -H "Content-Type: application/json" -H "Accept: application/json, text/plain, */*" -H "Accept-Language: en-US,en;q=0.9" -H "Sec-Fetch-Site: same-origin" -H "Sec-Fetch-Mode: cors" -H "Sec-Fetch-Dest: empty" -H "Sec-Fetch-User: ?1" -H "Sec-Ch-Ua: \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"" -H "Sec-Ch-Ua-Mobile: ?0" -H "Sec-Ch-Ua-Platform: \"Windows\"" -d "$BODY" "$STREAM"
+            try "E GET /stream" -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" "$STREAM?srv=s40&t=movie&id=1368337"
+            echo "=== F cookie flow ==="
+            curl -s -m 20 -c /tmp/cj.txt -o /dev/null -H "User-Agent: $UA" "https://bingr.one/watch/movie/1368337"
+            echo "cf cookies: $(grep -c cf_ /tmp/cj.txt 2>/dev/null || echo 0)"
+            curl -s -m 20 -o /tmp/r.out -w "HTTP:%{http_code} bytes:%{size_download}\n" -b /tmp/cj.txt -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/watch/movie/1368337" -H "Content-Type: application/json" -d "$BODY" "$STREAM"
+            head -c 220 /tmp/r.out; echo; echo
           } > api-diag.log 2>&1
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f api-diag.log
-          git commit -m "ci(android): API diagnostic $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
+          git commit -m "ci(android): API diagnostic2 $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
           git push --force origin HEAD:refs/heads/ci-api-diag 2>&1 | tail -2 || true
 
       - name: Set up JDK 17
