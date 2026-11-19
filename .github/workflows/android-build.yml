@@ -34,10 +34,10 @@ jobs:
         run: |
           set +e
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-          extract() { grep -oE 'https?://[^"'"'"' <>]+' /tmp/w.html 2>/dev/null | grep -oE 'dash/[0-9_]+' | head -3; }
+          extract() { grep -oE '[0-9]{8,}_[0-9]+_[0-9]+_[0-9]+_h265[0-9_]*' /tmp/w.html 2>/dev/null | sort -u | head -3; }
           {
-            echo "### DIAG6 $(date -u +%FT%TZ) ###"; echo
-            echo "=== TV episode param tests (look for _S_E_ in dash/... path) ==="
+            echo "### DIAG7 $(date -u +%FT%TZ) ###"; echo
+            echo "=== TV episode param tests (segment = resourceId_S_E_q_codec) ==="
             for u in \
               "https://bingr.one/watch/tv/84773" \
               "https://bingr.one/watch/tv/84773?s=1&e=1" \
@@ -46,20 +46,17 @@ jobs:
               "https://bingr.one/watch/tv/84773/2/3" \
               "https://bingr.one/watch/tv/84773?ep=3&se=2" ; do
               curl -s -m 25 -o /tmp/w.html -w "HTTP:%{http_code} bytes:%{size_download}  $u\n" -H "User-Agent: $UA" -H "Accept: text/html,application/xhtml+xml" "$u"
-              echo "   dash-ids: $(extract)"
+              echo "   segment: $(extract)"
             done
             echo
             echo "=== movie watch (no params) ==="
             curl -s -m 25 -o /tmp/w.html -w "HTTP:%{http_code} bytes:%{size_download}\n" -H "User-Agent: $UA" "https://bingr.one/watch/movie/1368337"
-            echo "   dash-ids: $(extract)"
-            echo
-            echo "=== full URL sample (movie, HTML-unescaped) ==="
-            grep -oE 'dash-hls-bridge[^"'"'"' <>]+' /tmp/w.html 2>/dev/null | head -1 | sed 's/&amp;/\&/g; s/\\u0026/\&/g' | head -c 600; echo
+            echo "   segment: $(extract)"
           } > api-diag.log 2>&1
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f api-diag.log
-          git commit -m "ci(android): API diagnostic6 $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
+          git commit -m "ci(android): API diagnostic7 $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
           git push --force origin HEAD:refs/heads/ci-api-diag 2>&1 | tail -2 || true
 
       - name: Set up JDK 17
