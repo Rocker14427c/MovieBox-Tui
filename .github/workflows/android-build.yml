@@ -34,22 +34,32 @@ jobs:
         run: |
           set +e
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+          extract() { grep -oE 'https?://[^"'"'"' <>]+' /tmp/w.html 2>/dev/null | grep -oE 'dash/[0-9_]+' | head -3; }
           {
-            echo "### DIAG5 $(date -u +%FT%TZ) ###"; echo
-            for spec in "movie/1368337" "tv/84773"; do
-              echo "########## watch $spec ##########"
-              curl -s -m 25 -o /tmp/w.html -w "HTTP:%{http_code} bytes:%{size_download}\n" -H "User-Agent: $UA" -H "Accept: text/html,application/xhtml+xml" "https://bingr.one/watch/$spec"
-              echo "--- stream-ish URLs (raw, unique) ---"
-              grep -oE 'https?://[^"'"'"' <>]+' /tmp/w.html 2>/dev/null | grep -iE 'm3u8|mp4|dash-hls|sacdn|workers|aphelion' | sort -u | head -12
-              echo "--- count of m3u8 mentions ---"
-              grep -oicE 'm3u8' /tmp/w.html 2>/dev/null
-              echo
+            echo "### DIAG6 $(date -u +%FT%TZ) ###"; echo
+            echo "=== TV episode param tests (look for _S_E_ in dash/... path) ==="
+            for u in \
+              "https://bingr.one/watch/tv/84773" \
+              "https://bingr.one/watch/tv/84773?s=1&e=1" \
+              "https://bingr.one/watch/tv/84773?s=2&e=3" \
+              "https://bingr.one/watch/tv/84773?season=2&episode=3" \
+              "https://bingr.one/watch/tv/84773/2/3" \
+              "https://bingr.one/watch/tv/84773?ep=3&se=2" ; do
+              curl -s -m 25 -o /tmp/w.html -w "HTTP:%{http_code} bytes:%{size_download}  $u\n" -H "User-Agent: $UA" -H "Accept: text/html,application/xhtml+xml" "$u"
+              echo "   dash-ids: $(extract)"
             done
+            echo
+            echo "=== movie watch (no params) ==="
+            curl -s -m 25 -o /tmp/w.html -w "HTTP:%{http_code} bytes:%{size_download}\n" -H "User-Agent: $UA" "https://bingr.one/watch/movie/1368337"
+            echo "   dash-ids: $(extract)"
+            echo
+            echo "=== full URL sample (movie, HTML-unescaped) ==="
+            grep -oE 'dash-hls-bridge[^"'"'"' <>]+' /tmp/w.html 2>/dev/null | head -1 | sed 's/&amp;/\&/g; s/\\u0026/\&/g' | head -c 600; echo
           } > api-diag.log 2>&1
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f api-diag.log
-          git commit -m "ci(android): API diagnostic5 $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
+          git commit -m "ci(android): API diagnostic6 $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
           git push --force origin HEAD:refs/heads/ci-api-diag 2>&1 | tail -2 || true
 
       - name: Set up JDK 17
