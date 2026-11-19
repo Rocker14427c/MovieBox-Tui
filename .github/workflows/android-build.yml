@@ -3,13 +3,7 @@ name: Android Build
 on:
   push:
     branches: [main, arena/2da5203f-moviebox-tui]
-    paths:
-      - "android/**"
-      - ".github/workflows/android-build.yml"
   pull_request:
-    paths:
-      - "android/**"
-      - ".github/workflows/android-build.yml"
   workflow_dispatch:
 
 permissions:
