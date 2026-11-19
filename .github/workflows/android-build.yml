@@ -30,6 +30,29 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: API diagnostic (bingr.one)
+        run: |
+          set +e
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+          {
+            echo "### DIAG $(date -u +%FT%TZ) ###"; echo
+            echo "=== 1) GET /details/movie/1368337 ==="
+            curl -s -m 20 -w "\nHTTP:%{http_code}\n" -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" "https://api.bingr.one/api/details/movie/1368337" | head -c 1200; echo
+            echo "=== 2) POST /stream s40 movie 1368337 ==="
+            curl -s -m 25 -w "\nHTTP:%{http_code}\n" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" -H "Content-Type: application/json" -d '{"srv":"s40","t":"movie","id":"1368337","query":{"title":"Dune","year":"2021"}}' "https://api.bingr.one/api/stream" | head -c 1200; echo
+            echo "=== 3) POST /stream s70 movie 1368337 ==="
+            curl -s -m 25 -w "\nHTTP:%{http_code}\n" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" -H "Content-Type: application/json" -d '{"srv":"s70","t":"movie","id":"1368337","query":{"title":"Dune","year":"2021"}}' "https://api.bingr.one/api/stream" | head -c 1200; echo
+            echo "=== 4) POST /stream s40 tv 84773 S1E1 ==="
+            curl -s -m 25 -w "\nHTTP:%{http_code}\n" -X POST -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" -H "Content-Type: application/json" -d '{"srv":"s40","t":"tv","id":"84773","query":{"title":"The Night Manager","year":"2016","season":1,"episode":1}}' "https://api.bingr.one/api/stream" | head -c 1200; echo
+            echo "=== 5) GET /stream/aphelion-tv/84773/1/1 ==="
+            curl -s -m 25 -w "\nHTTP:%{http_code}\n" -H "User-Agent: $UA" -H "Origin: https://bingr.one" -H "Referer: https://bingr.one/" "https://api.bingr.one/api/stream/aphelion-tv/84773/1/1" | head -c 1200; echo
+          } > api-diag.log 2>&1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f api-diag.log
+          git commit -m "ci(android): API diagnostic $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
+          git push --force origin HEAD:refs/heads/ci-api-diag 2>&1 | tail -2 || true
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
