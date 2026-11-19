@@ -34,31 +34,25 @@ jobs:
         run: |
           set +e
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-          clean() {
-            local s="$1"
-            while [[ "$s" =~ [\\\"'<>]$ ]]; do s="${s%?}"; done
-            s=$(printf '%s' "$s" | sed -E 's/\\+u0026/\&/g; s/&amp;/\&/g')
-            printf '%s' "$s"
-          }
           {
-            echo "### DIAG8 $(date -u +%FT%TZ) ###"; echo
+            echo "### DIAG9 $(date -u +%FT%TZ) ###"; echo
             for spec in "movie/1368337" "tv/84773/2/3"; do
               echo "===== watch $spec ====="
               curl -s -m 25 -o /tmp/w.html -w "page HTTP:%{http_code} bytes:%{size_download}\n" -H "User-Agent: $UA" -H "Accept: text/html" "https://bingr.one/watch/$spec"
-              RAW=$(grep -oE 'https://dash-hls-bridge[^"'"'"' <>]+' /tmp/w.html | head -1)
-              echo "RAW head : ${RAW:0:70}..."
-              URL=$(clean "$RAW")
-              echo "CLEANED : ${URL:0:140}..."
+              URL=$(grep -oE 'https://dash-hls-bridge[^"'"'"' <>]*Key-Pair-Id=[A-Za-z0-9]+' /tmp/w.html | head -1 \
+                    | sed -E 's/\\+u0026/\&/g; s/&amp;/\&/g')
+              echo "URL len=${#URL}"
+              echo "URL : ${URL:0:160}..."
               echo "--- curl the stream URL ---"
               curl -s -m 25 -o /tmp/m3u8.txt -w "stream HTTP:%{http_code} bytes:%{size_download} type:%{content_type}\n" -H "User-Agent: $UA" -H "Referer: https://bingr.one/" "$URL"
               echo "--- m3u8 first lines ---"
-              head -c 300 /tmp/m3u8.txt; echo; echo
+              head -c 280 /tmp/m3u8.txt; echo; echo
             done
           } > api-diag.log 2>&1
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f api-diag.log
-          git commit -m "ci(android): API diagnostic8 $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
+          git commit -m "ci(android): API diagnostic9 $(date -u +%FT%TZ)" 2>&1 || echo "commit skipped"
           git push --force origin HEAD:refs/heads/ci-api-diag 2>&1 | tail -2 || true
 
       - name: Set up JDK 17
