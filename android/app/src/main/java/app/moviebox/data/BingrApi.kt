@@ -1,28 +1,35 @@
 package app.moviebox.data
 
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 
 /**
- * Native client for the Bingr.one streaming API (https://bingr.one).
+ * Native client for the Bingr.one streaming service (https://bingr.one).
  *
- * Endpoints (all on https://api.bingr.one/api):
+ * Metadata endpoints (all on https://api.bingr.one/api, NOT Cloudflare-blocked):
  *   GET  /search?q=&page=            -> { page, total_pages, results: [...] }
  *   GET  /details/{movie|tv}/{id}     -> full TMDB-backed metadata + seasons + similars
- *   POST /stream   body {srv,t,id,query} -> { scraperName, sources:[{url,quality,language,headers}] }
  *
- * Sources are direct MP4 / HLS (m3u8) links, both playable in ExoPlayer.
- * No signing, no tokens — plain JSON over HTTP with a browser-like User-Agent.
+ * Stream resolution: the POST /stream endpoint is fronted by Cloudflare and hard-
+ * blocks non-browser clients (HTTP 403, TLS-fingerprint based — header spoofing does
+ * NOT bypass it). Instead, we fetch the public watch page HTML (GET, returns 200)
+ * which embeds the playable stream URL for the requested title/episode, then extract
+ * that URL.
+ *
+ *   Movie : GET https://bingr.one/watch/movie/{id}
+ *   TV    : GET https://bingr.one/watch/tv/{id}/{season}/{episode}
+ *
+ * The embedded URL is a Cloudflare-Workers HLS bridge wrapping a signed m3u8:
+ *   https://dash-hls-bridge.<...>.workers.dev/?url=<encoded master.m3u8>&Policy=...&Signature=...&Key-Pair-Id=...
+ * It is directly playable in ExoPlayer (HLS). The URL appears in the page both
+ * HTML-escaped (&amp;) and JS-escaped (\u0026); both are normalized to a clean URL.
+ *
+ * No signing, no tokens — plain HTTP with a browser-like User-Agent.
  */
 class BingrApi {
 
@@ -36,21 +43,6 @@ class BingrApi {
         .readTimeout(20, TimeUnit.SECONDS)
         .writeTimeout(20, TimeUnit.SECONDS)
         .build()
-
-    /** Active Bingr servers — priority order matches the site's own cascade. */
-    private val servers = listOf(
-        Server("s40", "Aphelion"),
-        Server("s70", "Polaris"),
-        Server("s62", "Bastion"),
-        Server("s63", "Hallyu"),
-        Server("s30", "Nova"),
-        Server("s60", "Vertex"),
-        Server("s61", "Corvus"),
-        Server("s31", "Orion"),
-        Server("s3", "Edmunds"),
-    )
-
-    private data class Server(val id: String, val name: String)
 
     private fun baseHeaders(): Map<String, String> = mapOf(
         "User-Agent" to ua,
@@ -69,15 +61,19 @@ class BingrApi {
             }
     }
 
-    private suspend fun post(url: String, body: String): JSONObject = withContext(Dispatchers.IO) {
+    /** Fetches a raw HTML page (the watch page). Returns the body text, or throws on HTTP error. */
+    private suspend fun getHtml(url: String): String = withContext(Dispatchers.IO) {
         val req = Request.Builder().url(url)
-            .headers(baseHeaders().toHeaders())
-            .post(body.toRequestBody("application/json".toMediaType()))
+            .header("User-Agent", ua)
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Referer", "$site/")
+            .get()
             .build()
         client.newCall(req).execute().use { resp ->
             val text = resp.body?.string().orEmpty()
-            if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}: $text")
-            JSONObject(text)
+            if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}")
+            text
         }
     }
 
@@ -101,74 +97,80 @@ class BingrApi {
     }
 
     /**
-     * Resolves playable streams by querying every Bingr server in parallel and
-     * merging the results (highest quality first, deduped, capped at MAX_STREAMS).
+     * Resolves playable streams by fetching the Bingr.one watch page for the title
+     * (or the specific TV episode) and extracting the embedded HLS bridge URL.
+     *
+     * The POST /stream endpoint is Cloudflare-blocked for non-browser clients, so the
+     * watch page (which server-renders the playable link) is the reliable source.
      */
     suspend fun streams(id: String, type: String, season: Int = 0, episode: Int = 0): List<Stream> {
         val t = if (type == "series") "tv" else "movie"
-
-        // Fetch title/year to include in the stream query (helps server matching).
-        val meta = try { details(id, type) } catch (_: Exception) { null }
-
-        val results = coroutineScope {
-            servers.map { srv ->
-                async(Dispatchers.IO) { requestServer(srv, id, t, season, episode, meta) }
-            }.awaitAll()
-        }
-
-        val merged = LinkedHashMap<String, Stream>()
-        for (res in results) {
-            for (s in res) {
-                val key = s.url.substringBefore('?')
-                if (key.isNotBlank()) merged.putIfAbsent(key, s)
+        val watchUrl = when (t) {
+            "tv" -> {
+                val s = if (season > 0) season else 1
+                val e = if (episode > 0) episode else 1
+                "$site/watch/tv/$id/$s/$e"
             }
+            else -> "$site/watch/movie/$id"
         }
-        return merged.values
-            .sortedByDescending { qualityRank(it.quality) }
-            .take(MAX_STREAMS)
+
+        val html = try {
+            getHtml(watchUrl)
+        } catch (_: Exception) {
+            return emptyList()
+        }
+
+        val rawUrls = extractStreamUrls(html)
+        if (rawUrls.isEmpty()) return emptyList()
+
+        return rawUrls.map { raw ->
+            val url = normalizeStreamUrl(raw)
+            val quality = qualityFromUrl(url)
+            val headers = mapOf(
+                "User-Agent" to ua,
+                "Referer" to "$site/",
+            )
+            Stream(name = "Bingr • $quality", quality = quality, url = url, headers = headers)
+        }.sortedByDescending { qualityRank(it.quality) }
     }
 
-    private suspend fun requestServer(
-        srv: Server, id: String, t: String, season: Int, episode: Int, meta: MediaDetail?,
-    ): List<Stream> = try {
-        val query = JSONObject()
-        meta?.title?.let { query.put("title", it) }
-        meta?.year?.let { query.put("year", it) }
-        if (t == "tv" && season > 0 && episode > 0) {
-            query.put("season", season)
-            query.put("episode", episode)
+    // ---------------- stream URL extraction ----------------
+
+    /** Finds every Cloudflare-Workers HLS bridge URL embedded in the watch-page HTML. */
+    private fun extractStreamUrls(html: String): List<String> =
+        Regex("""https://dash-hls-bridge[^"'<>\s]+""")
+            .findAll(html)
+            .map { it.value }
+            .distinct()
+
+    /**
+     * Cleans a raw extracted URL: strips trailing escape/quote artifacts and decodes
+     * the param separator, which appears HTML-escaped (&amp;) or JS-escaped (\u0026).
+     */
+    private fun normalizeStreamUrl(raw: String): String {
+        var u = raw.trimEnd('\\', '"', '\'', '<', '>')
+        // JS-escaped separator: one or more backslashes followed by u0026 -> &
+        u = u.replace(Regex("""\\+u0026"""), "&")
+        // HTML-escaped separator: &amp; -> &
+        u = u.replace("&amp;", "&")
+        return u
+    }
+
+    /** Derives a quality label from the inner m3u8 segment: dash/{id}_{s}_{e}_{q}_{codec}_{bitrate}. */
+    private fun qualityFromUrl(url: String): String {
+        val m = Regex("""dash[%2F/][0-9]+_[0-9]+_[0-9]+_(\d{3,4})_""").find(url)
+        val q = m?.groupValues?.get(1)?.toIntOrNull() ?: return "Auto"
+        return when (q) {
+            in 2160..9999 -> "4K"
+            in 1080..2159 -> "1080p"
+            in 720..1079 -> "720p"
+            in 480..719 -> "480p"
+            in 360..479 -> "360p"
+            else -> "Auto"
         }
-        val body = JSONObject().apply {
-            put("srv", srv.id)
-            put("t", t)
-            put("id", id)
-            put("query", query)
-        }
-        val json = post("$apiBase/stream", body.toString())
-        val sources = json.optJSONArray("sources") ?: return emptyList()
-        (0 until sources.length()).mapNotNull { sources.optJSONObject(it)?.toStream(srv.name) }
-            .filter { it.url.isNotBlank() }
-    } catch (_: Exception) {
-        emptyList()
     }
 
     // ---------------- parsing ----------------
-
-    private fun JSONObject.toStream(serverName: String): Stream? {
-        val url = optString("url").trim()
-        if (url.isBlank()) return null
-        val quality = optString("quality").trim().ifBlank { "Auto" }
-        val language = optString("language").trim()
-        val name = if (language.isNotBlank() && language != "Original")
-            "$serverName • $quality • $language" else "$serverName • $quality"
-        val headers = LinkedHashMap<String, String>()
-        headers["User-Agent"] = ua
-        headers["Referer"] = "$site/"
-        optJSONObject("headers")?.let { h ->
-            h.keys().forEach { headers[it] = h.getString(it) }
-        }
-        return Stream(name = name, quality = quality, url = url, headers = headers)
-    }
 
     private fun JSONObject.toCatalogItem(): CatalogItem? {
         val id = opt("id")?.toString()?.ifBlank { null } ?: return null
@@ -245,9 +247,5 @@ class BingrApi {
             s == "auto" -> 40
             else -> 30
         }
-    }
-
-    private companion object {
-        const val MAX_STREAMS = 12
     }
 }
